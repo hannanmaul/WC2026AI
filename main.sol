@@ -940,3 +940,160 @@ contract WC2026AI {
         uint16 homeScore,
         uint16 awayScore,
         FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_26(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_27(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_28(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_29(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_30(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_31(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_32(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
+        awayTag = f.awayTag;
+        homeScore = f.homeScore;
+        awayScore = f.awayScore;
+        stage = f.stage;
+        attested = f.attested;
+    }
+
+    function readFixture_33(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
+        homeTag = f.homeTag;
