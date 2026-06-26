@@ -155,3 +155,160 @@ contract WC2026AI {
     address public pendingPitMaster;
     address public immutable linesmanSeat;
     address public immutable oracleSeat;
+    address public immutable stadiumSeat;
+
+    bool public tournamentLive;
+    bool public lanePaused;
+    uint32 public activeEpoch;
+    uint32 public openCallCount;
+    uint32 public fixtureSerial;
+    uint64 public openedAt;
+    uint256 public echoSerial;
+    uint256 private _lock;
+
+    struct GroupRow {
+        bytes32 bandTag;
+        uint16 cap;
+        uint16 filled;
+        GroupPhase phase;
+        uint64 openedAt;
+    }
+
+    struct FixtureRow {
+        uint32 groupId;
+        bytes32 homeTag;
+        bytes32 awayTag;
+        bytes32 aiDigest;
+        uint16 homeScore;
+        uint16 awayScore;
+        FixtureStage stage;
+        uint64 kickoff;
+        uint64 attestedAt;
+        bool attested;
+    }
+
+    struct SquadSlot {
+        address coach;
+        bytes32 squadTag;
+        bytes32 commitment;
+        bytes32 preimage;
+        uint64 revealAfter;
+        SquadState state;
+        bool revealed;
+    }
+
+    struct CoachBench {
+        bool active;
+        bytes32 crest;
+        uint32 fixtureCount;
+    }
+
+    mapping(uint32 => GroupRow) public groups;
+    mapping(uint32 => FixtureRow) public fixtures;
+    mapping(uint32 => mapping(uint16 => SquadSlot)) private _slots;
+    mapping(uint32 => mapping(address => uint16[])) private _coachSlots;
+    mapping(address => CoachBench) public coachBenches;
+    mapping(bytes32 => bool) public ballotSpent;
+    mapping(bytes32 => uint256) public ballotUp;
+    mapping(bytes32 => uint256) public ballotDown;
+    mapping(uint32 => mapping(address => bool)) public predictSpent;
+
+    modifier nonReentrant() {
+        if (_lock == 1) revert WC26_Reentered();
+        _lock = 1;
+        _;
+        _lock = 0;
+    }
+
+    modifier onlyPitMaster() {
+        if (msg.sender != pitMaster) revert WC26_NotPitMaster();
+        _;
+    }
+
+    modifier onlyLinesman() {
+        if (msg.sender != linesmanSeat) revert WC26_NotLinesman();
+        _;
+    }
+
+    modifier onlyOracle() {
+        if (msg.sender != oracleSeat) revert WC26_NotOracle();
+        _;
+    }
+
+    modifier whenLive() {
+        if (!tournamentLive) revert WC26_TournamentOff();
+        if (lanePaused) revert WC26_LanePaused();
+        _;
+    }
+
+    constructor() {
+        pitMaster = msg.sender;
+        linesmanSeat = ADDRESS_A;
+        oracleSeat = ADDRESS_B;
+        stadiumSeat = ADDRESS_C;
+        openedAt = uint64(block.timestamp);
+        activeEpoch = 1;
+    }
+
+    function setTournamentLive(bool live) external onlyPitMaster {
+        tournamentLive = live;
+        emit TournamentSet(live, uint64(block.timestamp));
+    }
+
+    function setLanePaused(bool paused) external onlyPitMaster {
+        lanePaused = paused;
+        emit LanePauseSet(paused, uint64(block.timestamp));
+    }
+
+    function proposePitMaster(address next) external onlyPitMaster {
+        if (next == address(0)) revert WC26_ZeroAddr();
+        pendingPitMaster = next;
+        emit PitMasterProposed(next);
+    }
+
+    function acceptPitMaster() external {
+        if (msg.sender != pendingPitMaster) revert WC26_NoPending();
+        pitMaster = msg.sender;
+        pendingPitMaster = address(0);
+        emit PitMasterAccepted(msg.sender, uint64(block.timestamp));
+    }
+
+    function bumpEpoch() external onlyPitMaster {
+        unchecked { activeEpoch += 1; }
+    }
+
+    function openGroup(uint32 groupId, bytes32 bandTag, uint16 cap) public onlyPitMaster {
+        GroupRow storage g = groups[groupId];
+        if (g.phase != GroupPhase.Dormant) revert WC26_GroupSealed();
+        if (cap == 0 || cap > GROUP_CAP) revert WC26_GroupFull();
+        g.bandTag = bandTag;
+        g.cap = cap;
+        g.phase = GroupPhase.Open;
+        g.openedAt = uint64(block.timestamp);
+        emit Opened(groupId, cap, g.openedAt, uint256(bandTag));
+    }
+
+    function sealGroup(uint32 groupId) public onlyPitMaster {
+        GroupRow storage g = groups[groupId];
+        if (g.phase != GroupPhase.Open) revert WC26_GroupUnknown();
+        g.phase = GroupPhase.Sealed;
+        emit Sealed(groupId, g.filled, uint64(block.timestamp));
+    }
+
+    function scheduleFixture(
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint64 kickoff
+    ) external onlyLinesman whenLive returns (uint32 fixtureId) {
+        GroupRow storage g = groups[groupId];
+        if (g.phase != GroupPhase.Open && g.phase != GroupPhase.Sealed) revert WC26_GroupUnknown();
+        if (fixtureSerial >= MAX_FIXTURES) revert WC26_CallCap();
+        unchecked { fixtureId = fixtureSerial + 1; fixtureSerial = fixtureId; }
+        FixtureRow storage f = fixtures[fixtureId];
+        f.groupId = groupId;
+        f.homeTag = homeTag;
+        f.awayTag = awayTag;
+        f.kickoff = kickoff;
+        f.stage = FixtureStage.Waiting;
+        unchecked { g.filled += 1; }
