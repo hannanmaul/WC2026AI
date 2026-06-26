@@ -312,3 +312,160 @@ contract WC2026AI {
         f.kickoff = kickoff;
         f.stage = FixtureStage.Waiting;
         unchecked { g.filled += 1; }
+    }
+
+    function kickFixture(uint32 fixtureId) external onlyLinesman whenLive {
+        FixtureRow storage f = fixtures[fixtureId];
+        if (f.stage != FixtureStage.Waiting) revert WC26_FixtureLive();
+        f.stage = FixtureStage.Live;
+        if (openCallCount >= MAX_OPEN_CALLS) revert WC26_CallCap();
+        unchecked { openCallCount += 1; }
+    }
+
+    function voidFixture(uint32 fixtureId) external onlyPitMaster {
+        FixtureRow storage f = fixtures[fixtureId];
+        if (f.stage == FixtureStage.Finalized) revert WC26_FixtureDone();
+        f.stage = FixtureStage.Voided;
+        if (openCallCount > 0) unchecked { openCallCount -= 1; }
+    }
+
+    function claimSquad(uint32 fixtureId, uint16 slotId, bytes32 squadTag) external whenLive nonReentrant {
+        FixtureRow storage f = fixtures[fixtureId];
+        if (f.stage != FixtureStage.Waiting && f.stage != FixtureStage.Live) revert WC26_FixtureSealed();
+        if (slotId >= MAX_SQUAD_SLOTS) revert WC26_SquadEmpty();
+        SquadSlot storage s = _slots[fixtureId][slotId];
+        if (s.state != SquadState.Empty) revert WC26_SquadTaken();
+        s.coach = msg.sender;
+        s.squadTag = squadTag;
+        s.state = SquadState.Reserved;
+        _coachSlots[fixtureId][msg.sender].push(slotId);
+        CoachBench storage cb = coachBenches[msg.sender];
+        cb.active = true;
+        unchecked { cb.fixtureCount += 1; }
+        emit Claimed(fixtureId, msg.sender, squadTag, f.kickoff);
+    }
+
+    function commitPredict(uint32 fixtureId, uint16 slotId, bytes32 commitment) external whenLive {
+        SquadSlot storage s = _slots[fixtureId][slotId];
+        if (s.coach != msg.sender) revert WC26_NotCoach();
+        if (s.state != SquadState.Reserved) revert WC26_SquadTaken();
+        if (commitment == bytes32(0)) revert WC26_RevealMismatch();
+        s.commitment = commitment;
+        s.revealAfter = uint64(block.timestamp) + REVEAL_LAG;
+        s.state = SquadState.Locked;
+        emit Committed(fixtureId, slotId, msg.sender, commitment, s.revealAfter);
+    }
+
+    function revealPredict(uint32 fixtureId, uint16 slotId, bytes32 preimage) external whenLive {
+        SquadSlot storage s = _slots[fixtureId][slotId];
+        if (s.coach != msg.sender) revert WC26_NotCoach();
+        if (s.state != SquadState.Locked) revert WC26_SquadEmpty();
+        if (s.revealed) revert WC26_AlreadyRevealed();
+        if (block.timestamp < s.revealAfter) revert WC26_RevealEarly();
+        if (keccak256(abi.encodePacked(preimage)) != s.commitment) revert WC26_RevealMismatch();
+        s.preimage = preimage;
+        s.revealed = true;
+        emit Revealed(fixtureId, slotId, msg.sender, preimage, uint64(block.timestamp));
+    }
+
+    function attestScore(
+        uint32 fixtureId,
+        uint16 homeScore,
+        uint16 awayScore,
+        bytes32 modelTag
+    ) external onlyOracle whenLive {
+        FixtureRow storage f = fixtures[fixtureId];
+        if (f.stage != FixtureStage.Live) revert WC26_FixtureMissing();
+        if (f.attested) revert WC26_AttestDone();
+        if (homeScore < SCORE_FLOOR || awayScore < SCORE_FLOOR) revert WC26_ScoreLow();
+        if (homeScore > SCORE_CEIL || awayScore > SCORE_CEIL) revert WC26_ScoreHigh();
+        f.homeScore = homeScore;
+        f.awayScore = awayScore;
+        f.aiDigest = Wc26Pack.splitDigest(f.homeTag, f.awayTag, f.kickoff ^ uint64(uint256(modelTag)));
+        f.attested = true;
+        f.attestedAt = uint64(block.timestamp);
+        f.stage = FixtureStage.Finalized;
+        if (openCallCount > 0) unchecked { openCallCount -= 1; }
+        emit Attested(fixtureId, f.aiDigest, homeScore, awayScore, f.attestedAt);
+    }
+
+    function castBallot(bytes32 ballotId, bool up, uint256 weight) external whenLive {
+        if (ballotSpent[ballotId]) revert WC26_PredictSpent();
+        ballotSpent[ballotId] = true;
+        if (up) ballotUp[ballotId] += weight;
+        else ballotDown[ballotId] += weight;
+        emit Voted(ballotId, msg.sender, up, activeEpoch, weight);
+    }
+
+    function rosterDigest(uint32 fixtureId) external view returns (bytes32) {
+        FixtureRow storage f = fixtures[fixtureId];
+        return Wc26Pack.splitDigest(f.homeTag, f.awayTag, f.kickoff);
+    }
+
+    function coachSlotList(uint32 fixtureId, address coach) external view returns (uint16[] memory) {
+        return _coachSlots[fixtureId][coach];
+    }
+
+    function ballotTally(bytes32 ballotId) external view returns (uint256 up, uint256 down) {
+        return (ballotUp[ballotId], ballotDown[ballotId]);
+    }
+
+    function epochWindow() external view returns (uint32 epoch, uint256 span) {
+        return (activeEpoch, EPOCH_SPAN);
+    }
+
+    function bootGroup_A_0() external onlyPitMaster {
+        openGroup(1, keccak256(abi.encode(_SEED_0, uint256(1))), 8);
+    }
+
+    function bootGroup_B_1() external onlyPitMaster {
+        openGroup(2, keccak256(abi.encode(_SEED_1, uint256(2))), 7);
+    }
+
+    function bootGroup_C_2() external onlyPitMaster {
+        openGroup(3, keccak256(abi.encode(_SEED_2, uint256(3))), 6);
+    }
+
+    function bootGroup_D_3() external onlyPitMaster {
+        openGroup(4, keccak256(abi.encode(_SEED_3, uint256(4))), 8);
+    }
+
+    function bootGroup_E_4() external onlyPitMaster {
+        openGroup(5, keccak256(abi.encode(_SEED_4, uint256(5))), 7);
+    }
+
+    function bootGroup_F_5() external onlyPitMaster {
+        openGroup(6, keccak256(abi.encode(_SEED_5, uint256(6))), 6);
+    }
+
+    function bootGroup_G_6() external onlyPitMaster {
+        openGroup(7, keccak256(abi.encode(_SEED_6, uint256(7))), 8);
+    }
+
+    function bootGroup_H_7() external onlyPitMaster {
+        openGroup(8, keccak256(abi.encode(_SEED_7, uint256(8))), 7);
+    }
+
+    function bootGroup_I_8() external onlyPitMaster {
+        openGroup(9, keccak256(abi.encode(_SEED_8, uint256(9))), 6);
+    }
+
+    function bootGroup_J_9() external onlyPitMaster {
+        openGroup(10, keccak256(abi.encode(_SEED_0, uint256(10))), 8);
+    }
+
+    function bootGroup_K_10() external onlyPitMaster {
+        openGroup(11, keccak256(abi.encode(_SEED_1, uint256(11))), 7);
+    }
+
+    function readFixture_0(uint32 fixtureId) external view returns (
+        uint32 groupId,
+        bytes32 homeTag,
+        bytes32 awayTag,
+        uint16 homeScore,
+        uint16 awayScore,
+        FixtureStage stage,
+        bool attested
+    ) {
+        FixtureRow storage f = fixtures[fixtureId];
+        groupId = f.groupId;
